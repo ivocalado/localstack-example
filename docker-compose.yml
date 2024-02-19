@@ -1,0 +1,75 @@
+version: "3.8"
+
+services:
+  localstack:
+    # container_name: "${LOCALSTACK_DOCKER_NAME:-localstack-main}"
+    image: localstack/localstack
+    ports:
+      - "127.0.0.1:4566:4566" # LocalStack Gateway
+      - "127.0.0.1:4510-4559:4510-4559" # external services port range
+    environment:
+      # LocalStack configuration: https://docs.localstack.cloud/references/configuration/
+      - DEBUG=${DEBUG:-0}
+    volumes:
+      # - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - localstack
+
+  terraform:
+    build:
+      context: terraform
+    networks:
+      - localstack
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_HOSTNAME=localstack
+
+  service1:
+    build:
+      context: service1
+    networks:
+      - localstack
+    environment:
+      - AWS_ACCESS_KEY_ID=foo
+      - AWS_SECRET_ACCESS_KEY=bar
+      - AWS_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_FORCE_PATH_STYLE=true
+      - AWS_BUCKET=bucket-1
+      - AWS_SQS_URL=http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/queue-1
+    ports:
+      - "8080:8080"
+
+  service2:
+    build:
+      context: service2
+    networks:
+      - localstack
+    environment:
+      - AWS_ACCESS_KEY_ID=foo
+      - AWS_SECRET_ACCESS_KEY=bar
+      - AWS_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_SOURCE_SQS_URL=http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/queue-1
+      - AWS_DESTINATION_SQS_URL=http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/queue-2
+      - S3_FORCE_PATH_STYLE=true
+      - AWS_SOURCE_BUCKET=bucket-1
+      - AWS_DESTINATION_BUCKET=bucket-2
+
+  service3:
+    build:
+      context: service3
+    networks:
+      - localstack
+    environment:
+      - AWS_ACCESS_KEY_ID=foo
+      - AWS_SECRET_ACCESS_KEY=bar
+      - AWS_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_FORCE_PATH_STYLE=true
+      - AWS_BUCKET=bucket-2
+    ports:
+      - "9090:9090"
+networks:
+  localstack:
